@@ -9,6 +9,7 @@ import {
   authHeader,
   createOrganization,
   createProject,
+  createTask,
   registerUser,
   type TestUser,
 } from './utils/fixtures';
@@ -21,6 +22,7 @@ describe('Tasks', () => {
   let member: TestUser;
   let outsider: TestUser;
   let projectId: string;
+  let organizationId: string;
 
   beforeAll(async () => {
     ({ app, connection } = await createTestApp());
@@ -37,7 +39,7 @@ describe('Tasks', () => {
     member = await registerUser(app, 'Magd Ali', 'magd@example.com');
     outsider = await registerUser(app, 'Outside User', 'outside@example.com');
 
-    const organizationId = await createOrganization(
+    organizationId = await createOrganization(
       connection,
       'Acme Software',
       'acme-software',
@@ -113,6 +115,78 @@ describe('Tasks', () => {
       .set('Authorization', authHeader(outsider))
       .expect(403);
   });
+
+  it('denies task mutations by a same-organization member of another project without changing persistence', async () => {
+    await addOrganizationMember(connection, organizationId, outsider.id, OrganizationRole.MEMBER);
+    const otherProjectId = await createProject(
+      connection,
+      organizationId,
+      'Other project',
+      'OTHER',
+      owner.id,
+    );
+    await addProjectMember(connection, otherProjectId, outsider.id, ProjectRole.MEMBER);
+    const taskId = await createTask(connection, projectId, 'ENG', 1, 'Protected task', member.id);
+    const filter = { _id: new connection.base.Types.ObjectId(taskId) };
+    const before = await connection.collection('tasks').findOne(filter);
+    expect(before?.status).toBe(TaskStatus.TODO);
+
+    await request(app.getHttpServer())
+      .get(`/tasks/${taskId}`)
+      .set('Authorization', authHeader(outsider))
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`/tasks/${taskId}/status`)
+      .set('Authorization', authHeader(outsider))
+      .send({ status: TaskStatus.IN_PROGRESS })
+      .expect(403);
+    expect(await connection.collection('tasks').findOne(filter)).toEqual(before);
+    await request(app.getHttpServer())
+      .patch(`/tasks/${taskId}`)
+      .set('Authorization', authHeader(outsider))
+      .send({ title: 'Unauthorized edit' })
+      .expect(403);
+    expect(await connection.collection('tasks').findOne(filter)).toEqual(before);
+    await request(app.getHttpServer())
+      .delete(`/tasks/${taskId}`)
+      .set('Authorization', authHeader(outsider))
+      .expect(403);
+    expect(await connection.collection('tasks').findOne(filter)).toEqual(before);
+  });
+
+  it.each(['member', 'owner', 'admin'] as const)(
+    'allows an authorized %s to change status and persists the response',
+    async (role) => {
+      const taskId = await createTask(connection, projectId, 'ENG', 1, 'Status task', outsider.id);
+      let actor = member;
+      if (role === 'owner') actor = owner;
+      if (role === 'admin') {
+        await addOrganizationMember(
+          connection,
+          organizationId,
+          outsider.id,
+          OrganizationRole.ADMIN,
+        );
+        actor = outsider;
+      }
+      const response = await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/status`)
+        .set('Authorization', authHeader(actor))
+        .send({ status: TaskStatus.IN_PROGRESS })
+        .expect(200);
+      expect(response.body).toMatchObject({
+        id: taskId,
+        projectId,
+        status: TaskStatus.IN_PROGRESS,
+        project: { id: projectId, key: 'ENG' },
+      });
+      const persisted = await connection.collection('tasks').findOne({
+        _id: new connection.base.Types.ObjectId(taskId),
+      });
+      expect(persisted?.status).toBe(TaskStatus.IN_PROGRESS);
+      expect(persisted?.createdBy.toString()).toBe(outsider.id);
+    },
+  );
 
   it('rejects a task without a usable title', async () => {
     const response = await request(app.getHttpServer())
