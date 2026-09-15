@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { type ClientSession, Model, Types } from 'mongoose';
 import {
   isElevatedOrganizationRole,
   type OrganizationRole,
@@ -31,16 +31,28 @@ export class ProjectAccessService {
     private readonly projectMembersService: ProjectMembersService,
   ) {}
 
-  async resolve(projectId: Types.ObjectId, userId: Types.ObjectId): Promise<ProjectAccessContext> {
-    const project = await this.projectModel.findById(projectId).exec();
+  async resolve(
+    projectId: Types.ObjectId,
+    userId: Types.ObjectId,
+    session?: ClientSession,
+  ): Promise<ProjectAccessContext> {
+    const project = await this.projectModel
+      .findById(projectId)
+      .session(session ?? null)
+      .exec();
     if (!project) {
       throw new NotFoundException('Project not found');
     }
 
-    const [organizationRole, projectRole] = await Promise.all([
-      this.organizationMembersService.findRole(project.organizationId, userId),
-      this.projectMembersService.findRole(project._id, userId),
-    ]);
+    const [organizationRole, projectRole] = session
+      ? [
+          await this.organizationMembersService.findRole(project.organizationId, userId, session),
+          await this.projectMembersService.findRole(project._id, userId, session),
+        ]
+      : await Promise.all([
+          this.organizationMembersService.findRole(project.organizationId, userId),
+          this.projectMembersService.findRole(project._id, userId),
+        ]);
 
     return { project, organizationRole, projectRole };
   }
@@ -49,8 +61,9 @@ export class ProjectAccessService {
   async assertCanView(
     projectId: Types.ObjectId,
     userId: Types.ObjectId,
+    session?: ClientSession,
   ): Promise<ProjectAccessContext> {
-    const context = await this.resolve(projectId, userId);
+    const context = await this.resolve(projectId, userId, session);
     if (!canView(context)) {
       throw new ForbiddenException('You do not have access to this project');
     }

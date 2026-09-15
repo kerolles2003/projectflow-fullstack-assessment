@@ -294,6 +294,220 @@ describe('Tasks', () => {
     },
   );
 
+  describe('assignment policy', () => {
+    let taskId: string;
+    const objectId = (id: string) => new connection.base.Types.ObjectId(id);
+    const readTask = () => connection.collection('tasks').findOne({ _id: objectId(taskId) });
+    const events = () =>
+      connection
+        .collection('task_activities')
+        .find({ taskId: objectId(taskId) })
+        .sort({ createdAt: 1, _id: 1 })
+        .toArray();
+    const assign = (actor: TestUser, assigneeId: string | null) =>
+      request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/assignee`)
+        .set('Authorization', authHeader(actor))
+        .send({ assigneeId });
+
+    beforeEach(async () => {
+      await connection.models.TaskActivity!.init();
+      taskId = await createTask(connection, projectId, 'ENG', 1, 'Assignment target', owner.id);
+    });
+
+    async function expectDenied(actor: TestUser, target: string | null, status: number) {
+      const before = await readTask();
+      const history = await events();
+      await assign(actor, target).expect(status);
+      expect(await readTask()).toEqual(before);
+      expect(await events()).toEqual(history);
+    }
+
+    it.each(['owner', 'admin', 'project manager'] as const)(
+      'allows %s to assign a project member atomically',
+      async (role) => {
+        let actor = owner;
+        if (role === 'admin') {
+          await addOrganizationMember(
+            connection,
+            organizationId,
+            outsider.id,
+            OrganizationRole.ADMIN,
+          );
+          actor = outsider;
+        }
+        if (role === 'project manager') {
+          await addProjectMember(connection, projectId, outsider.id, ProjectRole.PROJECT_MANAGER);
+          actor = outsider;
+        }
+        const response = await assign(actor, member.id).expect(200);
+        expect(response.body.assigneeId).toBe(member.id);
+        expect((await readTask())?.assigneeId.toString()).toBe(member.id);
+        expect((await readTask())?.createdBy.toString()).toBe(owner.id);
+        const history = await events();
+        expect(history).toHaveLength(1);
+        expect(history[0]).toMatchObject({
+          taskId: objectId(taskId),
+          actorId: objectId(actor.id),
+          type: 'TASK_ASSIGNEE_CHANGED',
+          metadata: { from: null, to: objectId(member.id) },
+        });
+        expect(history[0]?.createdAt).toBeInstanceOf(Date);
+      },
+    );
+
+    it('allows a noncreator member to self-assign and clear their own assignment', async () => {
+      await assign(member, member.id).expect(200);
+      expect((await readTask())?.assigneeId.toString()).toBe(member.id);
+      await assign(member, null).expect(200);
+      expect((await readTask())?.assigneeId).toBeNull();
+      const history = await events();
+      expect(history).toHaveLength(2);
+      expect(history.map((event) => event.metadata)).toEqual([
+        { from: null, to: objectId(member.id) },
+        { from: objectId(member.id), to: null },
+      ]);
+    });
+
+    it('rejects member assignment to another member and clearing another assignment', async () => {
+      await addProjectMember(connection, projectId, outsider.id, ProjectRole.MEMBER);
+      await expectDenied(member, outsider.id, 403);
+      await assign(owner, outsider.id).expect(200);
+      await expectDenied(member, null, 403);
+      await expectDenied(member, outsider.id, 403); // No-op cannot bypass actor policy.
+    });
+
+    it('rejects unauthorized actors even for null no-ops', async () => {
+      await expectDenied(outsider, member.id, 403);
+      await expectDenied(outsider, null, 403);
+    });
+
+    it('rejects nonmember and elevated nonmember targets', async () => {
+      await expectDenied(owner, outsider.id, 400);
+      await expectDenied(owner, owner.id, 400);
+    });
+
+    it('rejects a target belonging only to another project', async () => {
+      const other = await createProject(
+        connection,
+        organizationId,
+        'Other project',
+        'OTHER',
+        owner.id,
+      );
+      await addProjectMember(connection, other, outsider.id, ProjectRole.MEMBER);
+      await expectDenied(owner, outsider.id, 400);
+    });
+
+    it('rejects a membership row ID as a user target', async () => {
+      const row = await connection
+        .collection('project_members')
+        .findOne({ projectId: objectId(projectId), userId: objectId(member.id) });
+      await expectDenied(owner, row!._id.toString(), 400);
+    });
+
+    it.each([
+      {},
+      { assigneeId: 'invalid' },
+      { assigneeId: 123 },
+      { assigneeId: null, projectId: 'spoofed' },
+    ])('rejects invalid assignment body %j without writing', async (body) => {
+      const before = await readTask();
+      await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/assignee`)
+        .set('Authorization', authHeader(owner))
+        .send(body)
+        .expect(400);
+      expect(await readTask()).toEqual(before);
+      expect(await events()).toHaveLength(0);
+    });
+
+    it('serializes new and legacy tasks as unassigned', async () => {
+      const created = await request(app.getHttpServer())
+        .post(`/projects/${projectId}/tasks`)
+        .set('Authorization', authHeader(member))
+        .send({ title: 'New unassigned task' })
+        .expect(201);
+      expect(created.body.assigneeId).toBeNull();
+      expect(
+        (await connection.collection('tasks').findOne({ _id: objectId(created.body.id) }))
+          ?.assigneeId,
+      ).toBeNull();
+      expect(await readTask()).not.toHaveProperty('assigneeId'); // Raw legacy fixture.
+      const legacy = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}`)
+        .set('Authorization', authHeader(member))
+        .expect(200);
+      expect(legacy.body.assigneeId).toBeNull();
+    });
+
+    it('records reassignment and manager clear, but no events or writes for no-ops', async () => {
+      await addProjectMember(connection, projectId, outsider.id, ProjectRole.MEMBER);
+      await assign(member, null).expect(200);
+      expect(await events()).toHaveLength(0);
+      await assign(owner, member.id).expect(200);
+      const before = await readTask();
+      await assign(owner, member.id).expect(200);
+      expect(await readTask()).toEqual(before);
+      expect(await events()).toHaveLength(1);
+      await assign(owner, outsider.id).expect(200);
+      await assign(owner, null).expect(200);
+      const cleared = await readTask();
+      await assign(member, null).expect(200);
+      expect(await readTask()).toEqual(cleared);
+      expect(cleared?.assigneeId).toBeNull();
+      expect((await events()).map((event) => event.metadata)).toEqual([
+        { from: null, to: objectId(member.id) },
+        { from: objectId(member.id), to: objectId(outsider.id) },
+        { from: objectId(outsider.id), to: null },
+      ]);
+    });
+
+    it('revalidates target membership on an assignment no-op', async () => {
+      await assign(owner, member.id).expect(200);
+      await connection
+        .collection('project_members')
+        .deleteOne({ projectId: objectId(projectId), userId: objectId(member.id) });
+      await expectDenied(owner, member.id, 400);
+    });
+
+    it('keeps concurrent assignment events consistent with the committed task', async () => {
+      await addProjectMember(connection, projectId, outsider.id, ProjectRole.MEMBER);
+      const responses = await Promise.all([
+        assign(owner, member.id).expect(200),
+        assign(owner, outsider.id).expect(200),
+      ]);
+      expect(responses.map((response) => response.body.assigneeId).sort()).toEqual(
+        [member.id, outsider.id].sort(),
+      );
+      const history = await events();
+      expect(history).toHaveLength(2);
+      const initial = history.find((event) => event.metadata.from === null);
+      const subsequent = history.find((event) => event.metadata.from !== null);
+      expect(initial).toBeDefined();
+      expect(subsequent?.metadata.from.toString()).toBe(initial?.metadata.to.toString());
+      expect((await readTask())?.assigneeId.toString()).toBe(subsequent?.metadata.to.toString());
+      expect(history.every((event) => event.actorId.toString() === owner.id)).toBe(true);
+    });
+
+    it('aborts the task write when Mongo rejects activity persistence', async () => {
+      const before = await readTask();
+      await connection.db!.command({
+        collMod: 'task_activities',
+        validator: { type: 'REJECT_TEST_EVENTS' },
+        validationLevel: 'strict',
+        validationAction: 'error',
+      });
+      try {
+        await assign(owner, member.id).expect(500);
+        expect(await readTask()).toEqual(before);
+        expect(await events()).toHaveLength(0);
+      } finally {
+        await connection.db!.command({ collMod: 'task_activities', validator: {} });
+      }
+    });
+  });
+
   it('rejects a task without a usable title', async () => {
     const response = await request(app.getHttpServer())
       .post(`/projects/${projectId}/tasks`)

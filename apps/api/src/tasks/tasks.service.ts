@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { type FilterQuery, Model, Types } from 'mongoose';
 import type { Paginated, TaskDetail, TaskSummary } from '@projectflow/shared';
@@ -12,15 +17,19 @@ import type { ListTasksQueryDto } from './dto/list-tasks.dto';
 import type { UpdateTaskDto } from './dto/update-task.dto';
 import type { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { Task, type TaskDocument } from './schemas/task.schema';
+import { TaskActivity, type TaskActivityDocument } from './schemas/task-activity.schema';
+import { ProjectMembersService } from '../project-members/project-members.service';
 
 @Injectable()
 export class TasksService {
   constructor(
     @InjectModel(Task.name) private readonly taskModel: Model<TaskDocument>,
+    @InjectModel(TaskActivity.name) private readonly activityModel: Model<TaskActivityDocument>,
     @InjectModel(Project.name) private readonly projectModel: Model<ProjectDocument>,
     @InjectModel(Comment.name) private readonly commentModel: Model<CommentDocument>,
     private readonly projectAccessService: ProjectAccessService,
     private readonly usersService: UsersService,
+    private readonly projectMembersService: ProjectMembersService,
   ) {}
 
   async findByProject(
@@ -132,6 +141,57 @@ export class TasksService {
     return this.toDetail(task, project);
   }
 
+  async updateAssignee(
+    taskId: Types.ObjectId,
+    userId: Types.ObjectId,
+    assigneeId: Types.ObjectId | null,
+  ): Promise<TaskDetail> {
+    const task = await this.taskModel.db.transaction(async (session) => {
+      const current = await this.taskModel.findById(taskId).session(session).exec();
+      if (!current) throw new NotFoundException('Task not found');
+      const access = await this.projectAccessService.assertCanView(
+        current.projectId,
+        userId,
+        session,
+      );
+      const previous = current.assigneeId ?? null;
+      if (!canManage(access)) {
+        const permitted =
+          assigneeId === null
+            ? previous === null || previous.equals(userId)
+            : assigneeId.equals(userId);
+        if (!permitted)
+          throw new ForbiddenException('You do not have permission to change this assignment');
+      }
+      if (assigneeId !== null) {
+        const role = await this.projectMembersService.findRole(
+          current.projectId,
+          assigneeId,
+          session,
+        );
+        const target = role === null ? null : await this.usersService.findById(assigneeId, session);
+        if (!target) throw new BadRequestException('Assignee must be a member of this project');
+      }
+      if (previous === null ? assigneeId === null : previous.equals(assigneeId)) return current;
+
+      current.assigneeId = assigneeId;
+      await current.save({ session });
+      await this.activityModel.create(
+        [
+          {
+            taskId: current._id,
+            actorId: userId,
+            type: 'TASK_ASSIGNEE_CHANGED',
+            metadata: { from: previous, to: assigneeId },
+          },
+        ],
+        { session },
+      );
+      return current;
+    });
+    return this.toDetail(task);
+  }
+
   async remove(taskId: Types.ObjectId, userId: Types.ObjectId): Promise<void> {
     const task = await this.findTaskOrFail(taskId);
     await this.projectAccessService.assertCanManage(task.projectId, userId);
@@ -194,6 +254,7 @@ export class TasksService {
     return {
       ...summary!,
       description: task.description ?? null,
+      assigneeId: task.assigneeId?.toString() ?? null,
       project: {
         id: resolvedProject._id.toString(),
         name: resolvedProject.name,

@@ -55,6 +55,7 @@ export interface TaskSummary {
 }
 
 export interface TaskDetail extends TaskSummary {
+  assigneeId: string | null;
   description?: string | null;
   project: Pick<ProjectSummary, 'id' | 'name' | 'key'>;
 }

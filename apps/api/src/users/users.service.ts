@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { type ClientSession, Model, Types } from 'mongoose';
 import { User, type UserDocument } from './schemas/user.schema';
 
 @Injectable()
@@ -25,8 +25,11 @@ export class UsersService {
     return this.userModel.findOne({ email: email.toLowerCase() }).select('+passwordHash').exec();
   }
 
-  findById(id: Types.ObjectId | string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
+  findById(id: Types.ObjectId | string, session?: ClientSession): Promise<UserDocument | null> {
+    return this.userModel
+      .findById(id)
+      .session(session ?? null)
+      .exec();
   }
 
   async findByIdOrFail(id: Types.ObjectId | string): Promise<UserDocument> {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { type ClientSession, Model, Types } from 'mongoose';
 import type { OrganizationRole } from '@projectflow/shared';
 import {
   OrganizationMember,
@@ -17,9 +17,11 @@ export class OrganizationMembersService {
   async findRole(
     organizationId: Types.ObjectId,
     userId: Types.ObjectId,
+    session?: ClientSession,
   ): Promise<OrganizationRole | null> {
     const membership = await this.organizationMemberModel
       .findOne({ organizationId, userId })
+      .session(session ?? null)
       .select('role')
       .lean()
       .exec();
