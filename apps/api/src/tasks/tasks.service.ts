@@ -58,8 +58,13 @@ export class TasksService {
   ): Promise<TaskDetail> {
     const { project } = await this.projectAccessService.assertCanView(projectId, userId);
 
-    const taskCount = await this.taskModel.countDocuments({ projectId });
-    const number = taskCount + 1;
+    const allocatedProject = await this.projectModel
+      .findByIdAndUpdate(project._id, { $inc: { lastTaskNumber: 1 } }, { new: true })
+      .exec();
+    if (!allocatedProject) {
+      throw new NotFoundException('Project not found');
+    }
+    const number = allocatedProject.lastTaskNumber;
 
     const task = await this.taskModel.create({
       projectId,

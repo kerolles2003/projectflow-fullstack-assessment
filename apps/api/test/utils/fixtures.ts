@@ -77,6 +77,7 @@ export async function createProject(
     name,
     key,
     description: null,
+    lastTaskNumber: 0,
     createdBy: toObjectId(connection, createdBy),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -107,6 +108,9 @@ export async function createTask(
   title: string,
   createdBy: string,
 ): Promise<string> {
+  await connection
+    .collection('projects')
+    .updateOne({ _id: toObjectId(connection, projectId) }, { $max: { lastTaskNumber: number } });
   const result = await connection.collection('tasks').insertOne({
     projectId: toObjectId(connection, projectId),
     number,
