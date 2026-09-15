@@ -16,6 +16,7 @@
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
+      "env": ["WEB_PORT"],
       "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
