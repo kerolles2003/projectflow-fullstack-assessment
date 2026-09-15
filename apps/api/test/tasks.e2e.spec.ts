@@ -601,12 +601,29 @@ describe('Tasks', () => {
         expect(item).not.toHaveProperty('_id');
       }
       const last = await history().query({ page: 2, pageSize: 2 }).expect(200);
+      expect(last.body).toMatchObject({ total: 3, page: 2, pageSize: 2 });
+      expect(response.body.items).toHaveLength(2);
+      expect(last.body.items).toHaveLength(1);
+      const firstPageIds = new Set(response.body.items.map((item: { id: string }) => item.id));
+      expect(last.body.items.every((item: { id: string }) => !firstPageIds.has(item.id))).toBe(
+        true,
+      );
       expect(last.body.items.map((item: { id: string }) => item.id)).toEqual([first.toString()]);
       expect(last.body.items[0].from).toBeNull();
+      expect(last.body.items[0].metadata.from).toBeNull();
       expect(last.body.total).toBe(3);
     });
 
     it('protects existing history with JWT and stored-task access', async () => {
+      const otherProject = await createProject(
+        connection,
+        organizationId,
+        'Outsider project',
+        'OUT',
+        owner.id,
+      );
+      await addOrganizationMember(connection, organizationId, outsider.id, OrganizationRole.MEMBER);
+      await addProjectMember(connection, otherProject, outsider.id, ProjectRole.MEMBER);
       await request(app.getHttpServer())
         .patch(`/tasks/${taskId}/assignee`)
         .set('Authorization', authHeader(owner))
@@ -622,6 +639,12 @@ describe('Tasks', () => {
       }
       const allowed = await history().expect(200);
       expect(allowed.body.total).toBe(1);
+      const storedEvent = await connection
+        .collection('task_activities')
+        .findOne({ taskId: objectId(taskId) });
+      expect(storedEvent).not.toBeNull();
+      expect(allowed.body.items[0].id).toBe(storedEvent!._id.toString());
+      expect(allowed.body.items[0].type).toBe('TASK_ASSIGNEE_CHANGED');
       expect(allowed.body.items[0]).toMatchObject({
         actorId: owner.id,
         metadata: { from: null, to: member.id },
@@ -631,7 +654,10 @@ describe('Tasks', () => {
     it('rejects invalid paging and follows task-not-found behavior', async () => {
       for (const query of [
         { page: 0 },
+        { page: -1 },
         { pageSize: 0 },
+        { pageSize: -1 },
+        { pageSize: 1.5 },
         { pageSize: 101 },
         { page: 'oops' },
         { page: 1.5 },
