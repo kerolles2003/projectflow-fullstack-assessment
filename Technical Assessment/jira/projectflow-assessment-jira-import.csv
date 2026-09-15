@@ -1,0 +1,456 @@
+"Issue ID","Stable Issue ID","Issue Type","Summary","Description","Priority","Status","Parent","Labels","Labels","Original Estimate"
+"1","PF-E1","Epic","Baseline & Authorization Fix","Reproduce the suspected status bypass, then enforce the existing project-access policy. No runtime confirmation exists yet. Roll-up container: estimate only executable sub-tasks.
+
+Acceptance Criteria:
+Applicable child acceptance criteria are met or deferrals explicitly recorded under the approved hard cap.
+
+Assessment Requirement:
+Plan requirements 14,16,21,23
+
+Dependencies:
+
+
+Phase:
+1-2","High","To Do","","projectflow-assessment","must-have","0"
+"2","PF-E2","Epic","Concurrency-Safe Task Numbering","Allocate project numbers in MongoDB and verify parallel successful creation. Roll-up container: estimate only executable sub-tasks.
+
+Acceptance Criteria:
+Applicable child acceptance criteria are met or deferrals explicitly recorded under the approved hard cap.
+
+Assessment Requirement:
+Plan requirements 15,16
+
+Dependencies:
+
+
+Phase:
+3","High","To Do","","projectflow-assessment","must-have","0"
+"3","PF-E3","Epic","Task Assignment Domain & Permissions","Resolve topology first, then implement scoped assignment and explicit unassignment. Roll-up container: estimate only executable sub-tasks.
+
+Acceptance Criteria:
+Applicable child acceptance criteria are met or deferrals explicitly recorded under the approved hard cap.
+
+Assessment Requirement:
+Plan requirements 1,2,3,4,5,16
+
+Dependencies:
+
+
+Phase:
+4","High","To Do","","projectflow-assessment","must-have","0"
+"4","PF-E4","Epic","Activity History & API","Persist every successful assignee change consistently and expose authorized paged history. Roll-up container: estimate only executable sub-tasks.
+
+Acceptance Criteria:
+Applicable child acceptance criteria are met or deferrals explicitly recorded under the approved hard cap.
+
+Assessment Requirement:
+Plan requirements 5,6,7,8,9,10,16
+
+Dependencies:
+
+
+Phase:
+5-6","High","To Do","","projectflow-assessment","must-have","0"
+"5","PF-E5","Epic","Frontend Assignment & Timeline","Extend existing task details with minimal accessible assignment and readable history. Roll-up container: estimate only executable sub-tasks.
+
+Acceptance Criteria:
+Applicable child acceptance criteria are met or deferrals explicitly recorded under the approved hard cap.
+
+Assessment Requirement:
+Plan requirements 11,12,13
+
+Dependencies:
+
+
+Phase:
+7","High","To Do","","projectflow-assessment","must-have","0"
+"6","PF-E6","Epic","Testing & Quality","Revision 2: cross-feature integration verification, full-suite verification, final technical review and prioritized quality checks. Feature-specific regression tests remain with their implementation issues. Roll-up container; only sub-tasks carry estimates.
+
+Acceptance Criteria:
+Mandatory integrated verification completes before final submission gate. Recommended and optional checks are completed or explicitly deferred.
+
+Assessment Requirement:
+Plan requirements 7,9,11,12,13,16
+
+Dependencies:
+
+
+Phase:
+8","High","To Do","","projectflow-assessment","must-have","0"
+"7","PF-E7","Epic","Documentation & Final Submission","Consolidate actual evidence and prepare final deliverables/checks; do not submit automatically. Roll-up container: estimate only executable sub-tasks.
+
+Acceptance Criteria:
+Applicable child acceptance criteria are met or deferrals explicitly recorded under the approved hard cap.
+
+Assessment Requirement:
+Plan requirements 17,18,19,20,21,22,23,24
+
+Dependencies:
+
+
+Phase:
+8-9","High","To Do","","projectflow-assessment","must-have","0"
+"8","PF-E1-T1","Task","Establish baseline and reproduce status authorization issue","Use approved plan and apps/api/test fixtures; preserve current user worktree. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+Baseline evidence and isolated reproduction outcome recorded before any fix.
+
+Assessment Requirement:
+Plan 14,16,21,23; brief 11,13,18
+
+Dependencies:
+
+
+Phase:
+1","High","To Do","1","projectflow-assessment","must-have","0"
+"11","PF-E1-T2","Task","Fix status access boundary and protect mutations","Work in apps/api/src/tasks/tasks.controller.ts and tasks.service.ts using ProjectAccessService. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+Status uses stored-project access; unrelated PATCH/DELETE policies remain; focused regression suite passes.
+
+Assessment Requirement:
+Plan 14,16,21,23; brief 11,13,18
+
+Dependencies:
+
+
+Phase:
+2","High","To Do","1","projectflow-assessment","must-have","0"
+"14","PF-E2-T1","Task","Replace count-based task numbering and verify concurrency","TasksService.create, TaskSchema, ProjectSchema, database/seed.ts, test/utils/fixtures.ts. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+Atomic project allocation and unique (projectId,number) enforcement work with existing setup and parallel requests.
+
+Assessment Requirement:
+Plan 15,16,23; brief 12,13,18
+
+Dependencies:
+
+
+Phase:
+3","High","To Do","2","projectflow-assessment","must-have","0"
+"17","PF-E3-T1","Task","Resolve persistence gate and implement assignment policy","Work in task DTO/schema/service, shared contracts and membership services. Assignment and activity form one release milestone with PF-E4-T1. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+Topology branch selected before domain coding; complete policy implemented; do not expose assignment success before matching activity persistence.
+
+Assessment Requirement:
+Plan 1,2,3,4,5,16,23; brief 5,6,7,13,18
+
+Dependencies:
+
+
+Phase:
+4","High","To Do","3","projectflow-assessment","must-have","0"
+"20","PF-E4-T1","Task","Persist assignment history atomically and test business rules","Complete selected persistence branch and tests in the existing API test architecture. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+All three transitions and policy rules pass; failed activity persistence cannot leave an assignee-only change.
+
+Assessment Requirement:
+Plan 1,2,3,4,5,16,23; brief 5,6,7,13,18
+
+Dependencies:
+
+
+Phase:
+5","High","To Do","4","projectflow-assessment","must-have","0"
+"23","PF-E4-T2","Task","Expose authorized paginated activity with batched users","Reuse CommentsService paging/authorization conventions and UsersService.findManyByIds without copying missing-author row dropping. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+Task-scoped authorization, working pages, stable newest-first history, batched users and chosen index verified.
+
+Assessment Requirement:
+Plan 6,7,8,9,10,16; brief 8,13
+
+Dependencies:
+
+
+Phase:
+6","High","To Do","4","projectflow-assessment","must-have","0"
+"26","PF-E5-T1","Task","Extend task detail with assignee selector and history","TaskView, existing member hooks, UI primitives, task hooks and queryKeys. Parent estimate is 0m to prevent double counting; executable work is estimated on sub-tasks.
+
+Acceptance Criteria:
+Minimal scoped selector and paginated readable timeline work with server-confirmed state and core interaction states.
+
+Assessment Requirement:
+Plan 11,12,13; brief 9,10
+
+Dependencies:
+
+
+Phase:
+7","High","To Do","5","projectflow-assessment","must-have","0"
+"29","PF-E6-T1","Task","Verify integrated features, full suite and prioritized quality","Run mandatory cross-feature/full-suite/final technical review after feature-specific tests and UI work. Keep recommended and optional checks nonblocking. Roll-up estimate is 0m.
+
+Acceptance Criteria:
+PF-E6-T1-S3 passes or final submission remains blocked. Other checks are completed or explicitly deferred under the approved cap.
+
+Assessment Requirement:
+Plan 7,9,11,12,13,16; brief 8,9,10,13
+
+Dependencies:
+
+
+Phase:
+8","High","To Do","6","projectflow-assessment","must-have","0"
+"33","PF-E7-T1","Task","Prepare required documentation and final submission gate","Prepare documentation using implementation evidence; separately gate readiness on mandatory Testing & Quality verification. Roll-up estimate 0m.
+
+Acceptance Criteria:
+Documentation complete and PF-E6-T1-S3 verified before PF-E7-T1-S2 marks readiness; no automatic submission.
+
+Assessment Requirement:
+Plan 17,18,19,20,21,22,23,24; brief 4,14-26
+
+Dependencies:
+
+
+Phase:
+8-9","High","To Do","7","projectflow-assessment","must-have","0"
+"9","PF-E1-T1-S1","Sub-task","Record baseline and prepare disposable verification","Inspect current branch/HEAD/status, existing test commands, and isolated Mongo fixture. Reuse CODEBASE_MAP; do not repeat reconnaissance.
+
+Acceptance Criteria:
+Record baseline check results and pre-existing failures; preserve untracked/modified work; use a disposable DB and no real secrets; record prior assessment effort and remaining cap.
+
+Assessment Requirement:
+Plan 14,16,23; brief 11,13,18
+
+Dependencies:
+
+
+Phase:
+1","High","To Do","8","projectflow-assessment","must-have","600"
+"10","PF-E1-T1-S2","Sub-task","Reproduce outsider status mutation with persisted evidence","Use apps/api/test/utils/fixtures.ts and TasksController.updateStatus path. Keep status before/after and actor membership evidence.
+
+Acceptance Criteria:
+Before changing authorization, authenticate a nonmember, PATCH another project's task status, then verify database state. Compare protected GET/general PATCH/DELETE. Distinguish confirmed source omission from runtime outcome; if not reproduced, investigate and record evidence without claiming reproduction.
+
+Assessment Requirement:
+Plan 14,21; brief 11
+
+Dependencies:
+PF-E1-T1-S1
+
+Phase:
+1","High","To Do","8","projectflow-assessment","must-have","900"
+"12","PF-E1-T2-S1","Sub-task","Pass authenticated actor into status service and check access","After reproduction/investigation, update TasksController.updateStatus and TasksService.updateStatus. Later applicable commit: fix: enforce project membership on task mutations
+
+Acceptance Criteria:
+Authorize via assertCanView on stored task.projectId before save; deny ordinary nonmembers with 403; preserve OWNER/ADMIN access in their organization and explicit project-member status access; retain creator-or-manager general PATCH and management-only DELETE. Do not trust client project IDs.
+
+Assessment Requirement:
+Plan 14,23; brief 11,18
+
+Dependencies:
+PF-E1-T1-S2
+
+Phase:
+2","High","To Do","11","projectflow-assessment","must-have","900"
+"13","PF-E1-T2-S2","Sub-task","Add focused task mutation authorization regression tests","Extend apps/api/test/tasks.e2e.spec.ts with real HTTP and persisted-state assertions. Later applicable commit: test: add task authorization regression coverage
+
+Acceptance Criteria:
+MUST-HAVE: outsider, same-org nonmember, and other-project member cannot mutate status/general PATCH/DELETE; denied calls leave task/comments unchanged. Unauthenticated access denied. Positive OWNER/ADMIN and member status cases pass; general edit/delete policies preserved.
+
+Assessment Requirement:
+Plan 14,16,23; brief 11,13,18
+
+Dependencies:
+PF-E1-T2-S1
+
+Phase:
+2","High","To Do","11","projectflow-assessment","must-have","1200"
+"15","PF-E2-T1-S1","Sub-task","Implement project counter and unique numbering constraint","Use atomic increment on existing Project document and returned number. Later applicable commit: fix: make project task numbering concurrency-safe
+
+Acceptance Criteria:
+Authorize before allocation; enforce unique (projectId,number); retain response/key format and project scope; gaps allowed after failed inserts and deletion never decrements counter. Initialize seed/fixtures. Inspect/backfill only retained data that requires it; remediate only actual duplicates before index creation, without silent renumbering. No process-local locks or migration framework.
+
+Assessment Requirement:
+Plan 15,23; brief 12,18
+
+Dependencies:
+PF-E1-T1-S1
+
+Phase:
+3","High","To Do","14","projectflow-assessment","must-have","1500"
+"16","PF-E2-T1-S2","Sub-task","Verify parallel creation and project isolation","Extend task integration tests; await unique-index creation and use counter-compatible fixtures.
+
+Acceptance Criteria:
+MUST-HAVE: parallel HTTP requests succeed and persisted task numbers/keys are unique within each project; multiple projects allocate independently. Verify actual unique index. Check deletion does not reuse numbers; retained-data setup tested if that branch is needed.
+
+Assessment Requirement:
+Plan 15,16; brief 12,13
+
+Dependencies:
+PF-E2-T1-S1
+
+Phase:
+3","High","To Do","14","projectflow-assessment","must-have","900"
+"18","PF-E3-T1-S1","Sub-task","Select topology and atomicity strategy before assignment","Inspect AppModule Mongo URI/topology and test/global-setup.ts. This issue is the explicit consistency decision gate.
+
+Acceptance Criteria:
+Record actual topology evidence. Prefer separate activity collection + transaction if local/test support is practical; make only necessary replica-set fixture/teardown/setup changes using existing package. Otherwise explicitly choose approved conditional single-document task+embedded-event update, documenting document-growth and indexed-task-lookup/paging limits. No outbox/Kafka/event sourcing. Chosen branch is ready before assignment coding.
+
+Assessment Requirement:
+Plan 5,16; brief 7,13
+
+Dependencies:
+PF-E1-T1-S1
+
+Phase:
+4","High","To Do","17","projectflow-assessment","must-have","600"
+"19","PF-E3-T1-S2","Sub-task","Implement assignment DTO, membership and unassignment policy","Add proposed nullable User-reference assigneeId and dedicated PATCH /tasks/:taskId/assignee; extend shared TaskDetail serialization. Later applicable commit: feat: add task assignment domain logic
+
+Acceptance Criteria:
+OWNER/ADMIN in task organization and PROJECT_MANAGER in task project may assign others; MEMBER may self-assign including another creator's task. Every non-null target explicitly belongs to stored task.projectId; use user.id, not membership-row ID. Unauthorized actor -> 403; eligible actor with invalid/nonmember target -> 400. Explicit assigneeId:null clears; omission invalid. Managers clear any manageable task; MEMBER only own assignment. Already-null authorized request is no-op. Preserve createdBy/status/priority; legacy missing assignee serializes null; creation remains unassigned. Keep new endpoint unavailable until PF-E4-T1 completes.
+
+Assessment Requirement:
+Plan 1,2,3,4,16,23; brief 5,6,13,18
+
+Dependencies:
+PF-E3-T1-S1
+
+Phase:
+4","High","To Do","17","projectflow-assessment","must-have","1500"
+"21","PF-E4-T1-S1","Sub-task","Implement consistent assignee change and event persistence","Use branch selected by PF-E3-T1-S1. Later applicable commit: feat: implement task activity history
+
+Acceptance Criteria:
+Successful change persists TASK_ASSIGNEE_CHANGED with authenticated actor, task, metadata.from/to and createdAt together. Transaction branch reads old value/rechecks policy/updates/inserts in same session, bounded retries recompute prior state, success only after commit. Fallback uses one conditional atomic update of assignee plus event, reload/recheck on conflict, bounded retry or no-write conflict. Null->user, user->different user, user->null supported. No event for no-op/rejection; never intentionally allow missing history or silently truncate it.
+
+Assessment Requirement:
+Plan 5,23; brief 7,18
+
+Dependencies:
+PF-E3-T1-S2
+
+Phase:
+5","High","To Do","20","projectflow-assessment","must-have","1200"
+"22","PF-E4-T1-S2","Sub-task","Test assignment roles, transitions and failure atomicity","Parameterize compact HTTP/persistence cases in apps/api/test using actual models and selected topology.
+
+Acceptance Criteria:
+MUST-HAVE: self-assign; OWNER/ADMIN/PROJECT_MANAGER assign member; member cannot assign others; nonmember target 400 and denied actor 403; omission rejected; manager unassign and member own-only restriction. Assert actor/from/to for all three transitions. Force event-write failure and verify neither task nor history changes (equivalent single-write failure for fallback). Include STRONGLY RECOMMENDED no-op and creator-unchanged assertions in these fixtures; report explicitly if those extra assertions are deferred.
+
+Assessment Requirement:
+Plan 1,2,3,4,5,16; brief 5,6,7,13
+
+Dependencies:
+PF-E4-T1-S1
+
+Phase:
+5","High","To Do","20","projectflow-assessment","must-have","900"
+"24","PF-E4-T2-S1","Sub-task","Add indexed activity API and safe enrichment","Proposed GET /tasks/:taskId/activity with shared Paginated response and DTO bounds. Use selected branch's storage.
+
+Acceptance Criteria:
+JWT then assertCanView using stored task.projectId before items/counts; default page 1/pageSize25 max100 and invalid values rejected. Return items,total,page,pageSize; order createdAt DESC then event ID DESC. Batch distinct actor/from/to IDs; retain events/reference IDs with Unknown user fallback and no password fields. Preferred collection index (taskId,createdAt DESC,_id DESC) exists; approved fallback documents task _id lookup, within-document paging/growth limits. Do not redesign task/comment pagination.
+
+Assessment Requirement:
+Plan 6,7,8,9,10; brief 8
+
+Dependencies:
+PF-E4-T1-S1
+
+Phase:
+6","High","To Do","23","projectflow-assessment","must-have","1200"
+"25","PF-E4-T2-S2","Sub-task","Test activity access and core paging contract","Real HTTP and isolated persistence; use the actual selected storage branch.
+
+Acceptance Criteria:
+MUST-HAVE: unauthenticated and unauthorized nonmember history requests denied; members and intended elevated viewers succeed. Verify task scoping, empty history, response contract and selected index. Add compact STRONGLY RECOMMENDED pagination boundary/newest-first checks; detailed recommended cases can finish in PF-E6-T1-S1.
+
+Assessment Requirement:
+Plan 6,7,8,9,10,16; brief 8,13
+
+Dependencies:
+PF-E4-T2-S1
+
+Phase:
+6","High","To Do","23","projectflow-assessment","must-have","600"
+"27","PF-E5-T1-S1","Sub-task","Add minimal searchable selector and confirmed mutation","Reuse useProjectMembers(task.projectId), current-user/project role data, existing Input/Label/Select. Add typed assignment helper/hook.
+
+Acceptance Criteria:
+Canonical returned task.projectId scopes members and invalidation; send entry.user.id. Search names/emails when appropriate using separate labeled filter, no large dependency/arbitrary input inside Select. Apply approved role/clear choices, preserve creator, support loading/error/retry/disabled/empty/no-match/keyboard/narrow layout. Wait for server response, update canonical detail and invalidate project tasks/activity pages. On failure keep previous confirmed UI, show error; uncertain lost response triggers refetch. No default optimistic layer; backend authoritative.
+
+Assessment Requirement:
+Plan 11,12; brief 9
+
+Dependencies:
+PF-E4-T1-S1
+
+Phase:
+7","High","To Do","26","projectflow-assessment","must-have","1800"
+"28","PF-E5-T1-S2","Sub-task","Render activity timeline and verify core UI states","Integrate existing CommentList visual language, date helper, query keys and paginated activity hook.
+
+Acceptance Criteria:
+Readable actor/from/to messages for assignment/reassignment/unassignment, newest-first; Unknown user fallback and timestamps. Working next/load-more controls plus loading/empty/error states. Manual smoke verifies assign/clear refresh detail/history, failure behavior, permission handling, keyboard and narrow layout. Keep existing visual system; do not redesign unrelated lists.
+
+Assessment Requirement:
+Plan 7,11,12,13; brief 8,9,10
+
+Dependencies:
+PF-E5-T1-S1; PF-E4-T2-S1
+
+Phase:
+7","High","To Do","26","projectflow-assessment","must-have","1200"
+"30","PF-E6-T1-S1","Sub-task","Complete compact recommended activity edge assertions","Extend already-created paging fixtures, avoiding a new harness. Budget belongs to activity API/tests.
+
+Acceptance Criteria:
+STRONGLY RECOMMENDED: missing-user history retained with IDs and Unknown user; page boundaries and deterministic newest-first checked. Audit that no-op/creator assertions exist in PF-E4-T1-S2 or record deferral. Required paging/no-op/fallback behavior itself remains in scope.
+
+Assessment Requirement:
+Plan 7,9,16; brief 8,13
+
+Dependencies:
+PF-E4-T2-S2
+
+Phase:
+8","Medium","To Do","29","projectflow-assessment","strongly-recommended","300"
+"31","PF-E6-T1-S2","Sub-task","Optionally deepen existing UI or query checks","Only if existing tools make a useful check possible within five minutes; no new broad automation harness. Budget belongs to frontend.
+
+Acceptance Criteria:
+NICE-TO-HAVE: select a useful detailed UI interaction, exact query-count, extra equal-timestamp, or responsive automation check. This is a capped timebox, not a promise of all four. If it cannot fit, record deferred and stop. Never blocks required tests/docs/final verification.
+
+Assessment Requirement:
+Plan 11,12,13,16; brief 9,10,13
+
+Dependencies:
+PF-E5-T1-S2
+
+Phase:
+8","Low","To Do","29","projectflow-assessment","nice-to-have","300"
+"32","PF-E6-T1-S3","Sub-task","Verify cross-feature integration, full suite and final technical diff","Revision 2: move 10m of the previous final-check budget into Testing & Quality. Reuse evidence and scripts from feature-local tests; this is an integration/full-suite confirmation, not first-time test authoring.
+
+Acceptance Criteria:
+MUST-HAVE: run the existing full API suite and appropriate build/lint/typecheck checks, verify startup and integrated create->assign->history->unassign flow across allowed/denied actors. Confirm canonical project context, server-confirmed detail/history refresh, and persisted numbering/atomicity regression evidence. Review complete technical diff for unintended permission changes, missing schema/index/test files, secrets and unrelated changes. Record commands/outcomes, distinguish pre-existing failures from regressions. Failed/unrun critical verification blocks a ready-to-submit conclusion; at hard cap report incompleteness. Recheck affected verification if subsequent changes invalidate results.
+
+Assessment Requirement:
+Plan 11,12,13,14,15,16,23,24; brief 9-13,18,24
+
+Dependencies:
+PF-E1-T2-S2; PF-E2-T1-S2; PF-E4-T1-S2; PF-E4-T2-S2; PF-E5-T1-S2
+
+Phase:
+8-9","High","To Do","29","projectflow-assessment","must-have","600"
+"34","PF-E7-T1-S1","Sub-task","Consolidate assessment documentation and review exercises","Capture notes during earlier work; finish root README, ASSESSMENT_NOTES, BUG_REPORT and AI_LOG only during later implementation. Can draft while UI proceeds; final validation waits for UI.
+
+Acceptance Criteria:
+README covers install/env/database/run/tests/decisions/limitations and applicable .env.example without secrets. Notes cover architecture/domain/auth/state and >=3 risks with now/later reasons; include exact ## Code Review of provided snippet and 1-2 page scaling discussion (5,000->500,000 users: indexes, queries, retention/archive, paging, jobs/queues, async, realtime, caching, observability with when/why). End notes with exact ## If I Had Two More Days prioritized. BUG_REPORT records actual reproduction/root cause/impact/fix/prevention or non-reproduction evidence. AI_LOG has four truthful sections incl real rejected/modified suggestions, no fabricated examples. Preserve focused Git history and exact required messages; note gaps/deferred work honestly.
+
+Assessment Requirement:
+Plan 17,18,19,20,21,22,23; brief 4,14-23
+
+Dependencies:
+PF-E4-T2-S1
+
+Phase:
+8","High","To Do","33","projectflow-assessment","must-have","1200"
+"35","PF-E7-T1-S2","Sub-task","Check documentation completeness and final submission readiness","Revision 2: final submission gate only. Full-suite, integrated startup/feature checks and technical diff review move to PF-E6-T1-S3; no duplicate execution estimate.
+
+Acceptance Criteria:
+MUST-HAVE: require passing/current PF-E6-T1-S3 evidence and completed PF-E7-T1-S1 documentation; all critical implementation and local regression work is a transitive prerequisite. Cross-check final source/schema/tests/README/ASSESSMENT_NOTES/BUG_REPORT/AI_LOG and applicable env example; no committed secrets; original brief/approved plan unchanged. Verify focused Git history and five exact required commit messages when applicable. Prepare applicant email/role, own starter-based repository URL, cumulative time, optional demo and up to5 ZIP/PDF/PNG/JPG files <=10MB each per brief. Deployment optional; do not submit automatically. Failed/unrun critical checks mean not ready, even at 6h stop; record deferrals honestly.
+
+Assessment Requirement:
+Plan 19,20,21,22,23,24; brief 19-26
+
+Dependencies:
+PF-E7-T1-S1; PF-E6-T1-S3
+
+Phase:
+9","High","To Do","33","projectflow-assessment","must-have","300"
