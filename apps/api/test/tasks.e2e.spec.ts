@@ -508,6 +508,145 @@ describe('Tasks', () => {
     });
   });
 
+  describe('activity read API', () => {
+    let taskId: string;
+    const objectId = (id: string) => new connection.base.Types.ObjectId(id);
+    const history = (actor: TestUser = member) =>
+      request(app.getHttpServer())
+        .get(`/tasks/${taskId}/activity`)
+        .set('Authorization', authHeader(actor));
+    beforeEach(async () => {
+      taskId = await createTask(connection, projectId, 'ENG', 1, 'History target', owner.id);
+    });
+
+    it('returns default empty paging and accepts elevated project access', async () => {
+      for (const actor of [member, owner]) {
+        const response = await history(actor).expect(200);
+        expect(response.body).toEqual({ items: [], total: 0, page: 1, pageSize: 25 });
+      }
+    });
+
+    it('pages only the target history in stable order and safely enriches missing users', async () => {
+      const missing = new connection.base.Types.ObjectId();
+      const first = new connection.base.Types.ObjectId();
+      const second = new connection.base.Types.ObjectId();
+      const third = new connection.base.Types.ObjectId();
+      const otherTask = await createTask(
+        connection,
+        projectId,
+        'ENG',
+        2,
+        'Other history',
+        owner.id,
+      );
+      const date = new Date('2026-01-01T00:00:00Z');
+      await connection.collection('task_activities').insertMany([
+        {
+          _id: first,
+          taskId: objectId(taskId),
+          actorId: objectId(owner.id),
+          type: 'TASK_ASSIGNEE_CHANGED',
+          metadata: { from: null, to: objectId(member.id) },
+          createdAt: new Date('2025-12-31T00:00:00Z'),
+        },
+        {
+          _id: second,
+          taskId: objectId(taskId),
+          actorId: objectId(owner.id),
+          type: 'TASK_ASSIGNEE_CHANGED',
+          metadata: { from: objectId(member.id), to: missing },
+          createdAt: date,
+        },
+        {
+          _id: third,
+          taskId: objectId(taskId),
+          actorId: missing,
+          type: 'TASK_ASSIGNEE_CHANGED',
+          metadata: { from: missing, to: objectId(member.id) },
+          createdAt: date,
+        },
+        {
+          taskId: objectId(otherTask),
+          actorId: objectId(owner.id),
+          type: 'TASK_ASSIGNEE_CHANGED',
+          metadata: { from: null, to: null },
+          createdAt: new Date('2027-01-01T00:00:00Z'),
+        },
+      ]);
+      const response = await history().query({ page: 1, pageSize: 2 }).expect(200);
+      expect(response.body).toMatchObject({ total: 3, page: 1, pageSize: 2 });
+      expect(response.body.items.map((item: { id: string }) => item.id)).toEqual([
+        third.toString(),
+        second.toString(),
+      ]);
+      expect(response.body.items.every((item: { taskId: string }) => item.taskId === taskId)).toBe(
+        true,
+      );
+      expect(response.body.items[0]).toMatchObject({
+        actorId: missing.toString(),
+        actor: { id: missing.toString(), name: 'Unknown user', email: '', avatarUrl: null },
+        metadata: { from: missing.toString(), to: member.id },
+        from: { id: missing.toString(), name: 'Unknown user' },
+        to: { id: member.id, name: 'Magd Ali' },
+        createdAt: date.toISOString(),
+      });
+      expect(response.body.items[1]).toMatchObject({
+        actor: { id: owner.id },
+        to: { id: missing.toString(), name: 'Unknown user' },
+      });
+      for (const item of response.body.items) {
+        for (const user of [item.actor, item.from, item.to]) {
+          if (user) expect(Object.keys(user).sort()).toEqual(['avatarUrl', 'email', 'id', 'name']);
+        }
+        expect(item).not.toHaveProperty('_id');
+      }
+      const last = await history().query({ page: 2, pageSize: 2 }).expect(200);
+      expect(last.body.items.map((item: { id: string }) => item.id)).toEqual([first.toString()]);
+      expect(last.body.items[0].from).toBeNull();
+      expect(last.body.total).toBe(3);
+    });
+
+    it('protects existing history with JWT and stored-task access', async () => {
+      await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/assignee`)
+        .set('Authorization', authHeader(owner))
+        .send({ assigneeId: member.id })
+        .expect(200);
+      const anonymous = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}/activity`)
+        .expect(401);
+      const denied = await history(outsider).expect(403);
+      for (const response of [anonymous, denied]) {
+        expect(response.body).not.toHaveProperty('items');
+        expect(response.body).not.toHaveProperty('total');
+      }
+      const allowed = await history().expect(200);
+      expect(allowed.body.total).toBe(1);
+      expect(allowed.body.items[0]).toMatchObject({
+        actorId: owner.id,
+        metadata: { from: null, to: member.id },
+      });
+    });
+
+    it('rejects invalid paging and follows task-not-found behavior', async () => {
+      for (const query of [
+        { page: 0 },
+        { pageSize: 0 },
+        { pageSize: 101 },
+        { page: 'oops' },
+        { page: 1.5 },
+        { pageSize: 'oops' },
+      ]) {
+        await history().query(query).expect(400);
+      }
+      await history().query({ pageSize: 100 }).expect(200);
+      await request(app.getHttpServer())
+        .get(`/tasks/${new connection.base.Types.ObjectId()}/activity`)
+        .set('Authorization', authHeader(member))
+        .expect(404);
+    });
+  });
+
   it('rejects a task without a usable title', async () => {
     const response = await request(app.getHttpServer())
       .post(`/projects/${projectId}/tasks`)

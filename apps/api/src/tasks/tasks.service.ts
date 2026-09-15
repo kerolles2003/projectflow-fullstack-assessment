@@ -6,7 +6,14 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { type FilterQuery, Model, Types } from 'mongoose';
-import type { Paginated, TaskDetail, TaskSummary } from '@projectflow/shared';
+import type {
+  Paginated,
+  TaskActivityEntry,
+  TaskDetail,
+  TaskSummary,
+  UserSummary,
+} from '@projectflow/shared';
+import type { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { toUserSummary } from '../common/utils/serialize';
 import { Comment, type CommentDocument } from '../comments/schemas/comment.schema';
 import { canManage, ProjectAccessService } from '../projects/project-access.service';
@@ -94,6 +101,59 @@ export class TasksService {
     const { project } = await this.projectAccessService.assertCanView(task.projectId, userId);
 
     return this.toDetail(task, project);
+  }
+
+  async findActivity(
+    taskId: Types.ObjectId,
+    userId: Types.ObjectId,
+    query: PaginationQueryDto,
+  ): Promise<Paginated<TaskActivityEntry>> {
+    const task = await this.findTaskOrFail(taskId);
+    await this.projectAccessService.assertCanView(task.projectId, userId);
+    const filter = { taskId: task._id };
+    const [activities, total] = await Promise.all([
+      this.activityModel
+        .find(filter)
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(query.skip)
+        .limit(query.pageSize)
+        .exec(),
+      this.activityModel.countDocuments(filter),
+    ]);
+    const ids = new Map<string, Types.ObjectId>();
+    for (const activity of activities) {
+      for (const id of [activity.actorId, activity.metadata.from, activity.metadata.to]) {
+        if (id) ids.set(id.toString(), id);
+      }
+    }
+    const users = ids.size === 0 ? [] : await this.usersService.findManyByIds([...ids.values()]);
+    const summaries = new Map(users.map((user) => [user._id.toString(), toUserSummary(user)]));
+    const resolveUser = (id: Types.ObjectId): UserSummary =>
+      summaries.get(id.toString()) ?? {
+        id: id.toString(),
+        name: 'Unknown user',
+        email: '',
+        avatarUrl: null,
+      };
+    return {
+      items: activities.map((activity) => ({
+        id: activity._id.toString(),
+        taskId: activity.taskId.toString(),
+        type: activity.type,
+        actorId: activity.actorId.toString(),
+        actor: resolveUser(activity.actorId),
+        metadata: {
+          from: activity.metadata.from?.toString() ?? null,
+          to: activity.metadata.to?.toString() ?? null,
+        },
+        from: activity.metadata.from ? resolveUser(activity.metadata.from) : null,
+        to: activity.metadata.to ? resolveUser(activity.metadata.to) : null,
+        createdAt: activity.createdAt.toISOString(),
+      })),
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+    };
   }
 
   async update(
