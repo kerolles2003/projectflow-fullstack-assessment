@@ -357,9 +357,36 @@ describe('Tasks', () => {
     );
 
     it('allows a noncreator member to self-assign and clear their own assignment', async () => {
+      const project = await request(app.getHttpServer())
+        .post('/projects')
+        .set('Authorization', authHeader(owner))
+        .send({ organizationId, name: 'Integrated project', key: 'FLOW' })
+        .expect(201);
+      projectId = project.body.id;
+      expect(
+        (await connection.collection('projects').findOne({ _id: objectId(projectId) }))
+          ?.lastTaskNumber,
+      ).toBe(0);
+      await addProjectMember(connection, projectId, member.id, ProjectRole.MEMBER);
+      const created = await request(app.getHttpServer())
+        .post(`/projects/${projectId}/tasks`)
+        .set('Authorization', authHeader(owner))
+        .send({ title: 'Integrated assignment task' })
+        .expect(201);
+      taskId = created.body.id;
+      expect(created.body).toMatchObject({ projectId, number: 1, key: 'FLOW-1' });
       await assign(member, member.id).expect(200);
       expect((await readTask())?.assigneeId.toString()).toBe(member.id);
-      await assign(member, null).expect(200);
+      await expectDenied(outsider, member.id, 403);
+      const beforeStatus = await readTask();
+      await request(app.getHttpServer())
+        .patch(`/tasks/${taskId}/status`)
+        .set('Authorization', authHeader(outsider))
+        .send({ status: TaskStatus.IN_PROGRESS })
+        .expect(403);
+      expect(await readTask()).toEqual(beforeStatus);
+      const cleared = await assign(member, null).expect(200);
+      expect(cleared.body.assigneeId).toBeNull();
       expect((await readTask())?.assigneeId).toBeNull();
       const history = await events();
       expect(history).toHaveLength(2);
@@ -367,6 +394,32 @@ describe('Tasks', () => {
         { from: null, to: objectId(member.id) },
         { from: objectId(member.id), to: null },
       ]);
+      const refreshed = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}`)
+        .set('Authorization', authHeader(member))
+        .expect(200);
+      expect(refreshed.body).toMatchObject({ id: taskId, projectId, number: 1, assigneeId: null });
+      const activity = await request(app.getHttpServer())
+        .get(`/tasks/${taskId}/activity`)
+        .set('Authorization', authHeader(member))
+        .expect(200);
+      expect(activity.body.total).toBe(2);
+      expect(activity.body.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            actor: expect.objectContaining({ id: member.id }),
+            metadata: { from: null, to: member.id },
+            from: null,
+            to: expect.objectContaining({ id: member.id }),
+          }),
+          expect.objectContaining({
+            actor: expect.objectContaining({ id: member.id }),
+            metadata: { from: member.id, to: null },
+            from: expect.objectContaining({ id: member.id }),
+            to: null,
+          }),
+        ]),
+      );
     });
 
     it('rejects member assignment to another member and clearing another assignment', async () => {
@@ -520,6 +573,13 @@ describe('Tasks', () => {
     });
 
     it('returns default empty paging and accepts elevated project access', async () => {
+      await connection.models.TaskActivity!.init();
+      const indexes = await connection.collection('task_activities').indexes();
+      expect(indexes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: { taskId: 1, createdAt: -1, _id: -1 } }),
+        ]),
+      );
       for (const actor of [member, owner]) {
         const response = await history(actor).expect(200);
         expect(response.body).toEqual({ items: [], total: 0, page: 1, pageSize: 25 });
